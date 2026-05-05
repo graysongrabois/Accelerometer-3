@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Activity Risk Simulator</title>
+<style>
+:root {
+  --bg:#0d1117; --card:#161b22; --card2:#1c2128; --border:#30363d;
+  --text:#e6edf3; --muted:#7d8590; --blue:#58a6ff; --green:#3fb950;
+  --yellow:#d29922; --orange:#db6d28; --red:#f85149; --purple:#bc8cff;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',sans-serif;min-height:100vh;}
+
+/* TABS */
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--card);}
+.tab{padding:14px 28px;font-size:.9rem;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;color:var(--muted);transition:all .2s;}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue);}
+.page{display:none;}.page.active{display:block;}
+
+/* LAYOUT */
+.wrap{max-width:1380px;margin:0 auto;padding:24px 20px;}
+.header{text-align:center;margin-bottom:26px;}
+.header h2{font-size:1.5rem;font-weight:700;}
+.header p{color:var(--muted);font-size:.82rem;margin-top:5px;}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start;}
+.col-right{display:flex;flex-direction:column;gap:16px;}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;}
+.card+.card{margin-top:14px;}
+.ct{font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:14px;}
+.sep{border-top:1px solid var(--border);margin:14px 0;}
+
+/* ===== DISTRIBUTION SLIDER ===== */
+.dslider{margin-bottom:18px;}
+.dslider-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+.dslider-name{font-size:.9rem;font-weight:600;}
+.dslider-val{font-size:.82rem;color:var(--blue);font-weight:700;}
+
+.dist-bar{position:relative;height:28px;margin-bottom:4px;}
+.dist-track{position:absolute;left:0;right:0;top:11px;height:6px;background:var(--border);border-radius:3px;}
+.dist-sd{position:absolute;top:11px;height:6px;border-radius:3px;opacity:.35;transition:left .15s,width .15s;}
+.dist-median{position:absolute;top:8px;width:2px;height:12px;background:rgba(255,255,255,.5);border-radius:1px;}
+.dist-dot{position:absolute;width:14px;height:14px;border-radius:50%;top:4px;transform:translateX(-50%);border:2px solid var(--card);transition:left .1s;z-index:2;cursor:pointer;}
+.dist-minmax{display:flex;justify-content:space-between;font-size:.67rem;color:var(--muted);padding:0 2px;margin-bottom:3px;}
+.dist-stats{font-size:.71rem;color:var(--muted);margin-bottom:6px;}
+.dist-stats b{color:var(--text);}
+
+input[type=range]{width:100%;height:4px;border-radius:2px;background:transparent;-webkit-appearance:none;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--blue);cursor:pointer;border:2px solid var(--bg);box-shadow:0 0 0 2px var(--blue);}
+input.bmi-r::-webkit-slider-thumb{background:var(--orange);box-shadow:0 0 0 2px var(--orange);}
+
+/* ===== HOSPITALIZATION OUTPUT ===== */
+.hosp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.hosp-big{text-align:center;padding:16px;background:var(--card2);border-radius:8px;}
+.hosp-big .num{font-size:3rem;font-weight:800;}
+.hosp-big .lbl{font-size:.82rem;color:var(--muted);margin-top:4px;}
+
+/* Probability bars */
+.prob-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.prob-label{font-size:.82rem;min-width:70px;}
+.prob-track{flex:1;height:18px;background:var(--border);border-radius:4px;overflow:hidden;}
+.prob-fill{height:100%;border-radius:4px;transition:width .4s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;}
+.prob-fill span{font-size:.72rem;font-weight:700;color:var(--bg);}
+.prob-pct{font-size:.82rem;font-weight:600;min-width:38px;text-align:right;}
+
+/* ===== BP OUTPUT ===== */
+.bp-display{display:flex;align-items:baseline;gap:8px;}
+.bp-num{font-size:2.8rem;font-weight:800;transition:color .3s;}
+.bp-unit{font-size:.9rem;color:var(--muted);}
+.bp-cat{font-size:.82rem;font-weight:600;margin-top:2px;transition:color .3s;}
+.bp-bar{height:10px;border-radius:5px;background:linear-gradient(to right,#3fb950,#d29922,#db6d28,#f85149);margin:10px 0 4px;position:relative;}
+.bp-needle{position:absolute;width:3px;height:16px;top:-3px;background:#fff;border-radius:2px;transform:translateX(-50%);transition:left .3s;}
+.bp-labels{display:flex;justify-content:space-between;font-size:.67rem;color:var(--muted);}
+
+/* Alerts */
+.alerts{margin-top:10px;}
+.alert{padding:7px 10px;border-radius:6px;font-size:.79rem;margin-bottom:7px;line-height:1.45;}
+.alert.warn  {background:rgba(210,153,34,.12);border:1px solid rgba(210,153,34,.35);color:#f0c060;}
+.alert.danger{background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.35);color:#ff8585;}
+.alert.good  {background:rgba(63,185,80,.12);border:1px solid rgba(63,185,80,.35);color:#7ee787;}
+
+/* ===================================
+   EXPLAINER PAGE
+   =================================== */
+.explainer{max-width:860px;margin:0 auto;padding:32px 20px 60px;}
+.explainer h1{font-size:1.8rem;font-weight:800;margin-bottom:8px;}
+.explainer .intro{font-size:1rem;color:var(--muted);margin-bottom:36px;line-height:1.7;}
+.section{margin-bottom:42px;}
+.section h2{font-size:1.25rem;font-weight:700;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.section h3{font-size:1rem;font-weight:600;margin:18px 0 6px;color:var(--blue);}
+.section p{font-size:.92rem;line-height:1.75;color:var(--text);margin-bottom:10px;}
+.section ul{margin:8px 0 10px 20px;}
+.section li{font-size:.92rem;line-height:1.7;margin-bottom:6px;}
+.callout{background:var(--card2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;padding:14px 16px;margin:14px 0;}
+.callout.warn{border-color:var(--yellow);}
+.callout.good{border-color:var(--green);}
+.callout.red{border-color:var(--red);}
+.callout p{margin:0;font-size:.88rem;line-height:1.65;}
+.formula-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 18px;font-family:monospace;font-size:.88rem;line-height:1.8;margin:12px 0;overflow-x:auto;}
+.coef-table{width:100%;border-collapse:collapse;font-size:.86rem;margin:14px 0;}
+.coef-table th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--border);color:var(--muted);font-size:.75rem;text-transform:uppercase;}
+.coef-table td{padding:8px 10px;border-bottom:1px solid var(--border);}
+.coef-table tr:last-child td{border-bottom:none;}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.74rem;font-weight:600;margin-left:6px;}
+.badge.sig{background:rgba(63,185,80,.2);color:#7ee787;}
+.badge.ns{background:rgba(125,133,144,.15);color:var(--muted);}
+.badge.strong{background:rgba(248,81,73,.2);color:#ff8585;}
+.badge.dominant{background:rgba(88,166,255,.2);color:#58a6ff;}
+</style>
+</head>
+<body>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab(0)">Simulator</div>
+  <div class="tab" onclick="switchTab(1)">How It Works — Plain English</div>
+</div>
+
+<!-- ==================== PAGE 1: SIMULATOR ==================== -->
+<div class="page active" id="page0">
+<div class="wrap">
+  <div class="header">
+    <h2>Activity Risk Simulator</h2>
+    <p>NHANES 2005 · Cox model · Adults 50+ · n=1,516 · 238 hospitalizations · C-index 0.639 · Exact coefficients from notebook</p>
+  </div>
+
+  <div class="grid">
+
+    <!-- LEFT: SLIDERS -->
+    <div>
+      <div class="card">
+        <div class="ct">Daily Activity — Steps per Hour in Each Period</div>
+
+        <!-- MORNING -->
+        <div class="dslider" id="ds-morning">
+          <div class="dslider-header">
+            <span class="dslider-name">☀️ Morning <span style="font-size:.75rem;color:var(--muted)">(6 am – 12 pm)</span></span>
+            <span class="dslider-val" id="morning-v">—</span>
+          </div>
+          <div class="dist-bar">
+            <div class="dist-track"></div>
+            <div class="dist-sd"   id="morning-sd"  style="background:var(--blue)"></div>
+            <div class="dist-median" id="morning-med"></div>
+            <div class="dist-dot"  id="morning-dot" style="background:var(--blue)"></div>
+          </div>
+          <div class="dist-minmax"><span>0</span><span>median</span><span>900</span></div>
+          <div class="dist-stats" id="morning-stats"></div>
+          <input type="range" id="morning" min="0" max="900" step="25" value="385" oninput="update()">
+        </div>
+
+        <!-- MIDDAY -->
+        <div class="dslider" id="ds-midday">
+          <div class="dslider-header">
+            <span class="dslider-name">🌤️ Midday <span style="font-size:.75rem;color:var(--muted)">(12 pm – 6 pm)</span></span>
+            <span class="dslider-val" id="midday-v">—</span>
+          </div>
+          <div class="dist-bar">
+            <div class="dist-track"></div>
+            <div class="dist-sd"   id="midday-sd"  style="background:var(--green)"></div>
+            <div class="dist-median" id="midday-med"></div>
+            <div class="dist-dot"  id="midday-dot" style="background:var(--green)"></div>
+          </div>
+          <div class="dist-minmax"><span>0</span><span>median</span><span>900</span></div>
+          <div class="dist-stats" id="midday-stats"></div>
+          <input type="range" id="midday" min="0" max="900" step="25" value="425" oninput="update()">
+          <style>#midday::-webkit-slider-thumb{background:var(--green);box-shadow:0 0 0 2px var(--green);}</style>
+        </div>
+
+        <!-- NIGHT -->
+        <div class="dslider" id="ds-night">
+          <div class="dslider-header">
+            <span class="dslider-name">🌙 Evening/Night <span style="font-size:.75rem;color:var(--muted)">(6 pm – 12 am)</span></span>
+            <span class="dslider-val" id="night-v">—</span>
+          </div>
+          <div class="dist-bar">
+            <div class="dist-track"></div>
+            <div class="dist-sd"   id="night-sd"  style="background:var(--purple)"></div>
+            <div class="dist-median" id="night-med"></div>
+            <div class="dist-dot"  id="night-dot" style="background:var(--purple)"></div>
+          </div>
+          <div class="dist-minmax"><span>0</span><span>median</span><span>900</span></div>
+          <div class="dist-stats" id="night-stats"></div>
+          <input type="range" id="night" min="0" max="900" step="25" value="275" oninput="update()">
+          <style>#night::-webkit-slider-thumb{background:var(--purple);box-shadow:0 0 0 2px var(--purple);}</style>
+        </div>
+        <p style="font-size:.72rem;color:var(--muted);margin-bottom:14px;">12 am–6 am is sleep — fixed at 0 steps. Night slider affects 10pm–12am which also feeds the sleep proxy calculation.</p>
+
+        <div class="sep"></div>
+
+        <!-- BMI -->
+        <div class="dslider">
+          <div class="dslider-header">
+            <span class="dslider-name">⚖️ BMI</span>
+            <span class="dslider-val" id="bmi-v">—</span>
+          </div>
+          <div class="dist-bar">
+            <div class="dist-track"></div>
+            <div class="dist-sd"    id="bmi-sd"  style="background:var(--orange)"></div>
+            <div class="dist-median" id="bmi-med"></div>
+            <div class="dist-dot"   id="bmi-dot" style="background:var(--orange)"></div>
+          </div>
+          <!-- BMI threshold ticks -->
+          <div style="position:relative;height:14px;margin-bottom:2px;">
+            <div style="position:absolute;left:11.6%;font-size:.65rem;color:var(--green);">▲18.5</div>
+            <div style="position:absolute;left:27.0%;font-size:.65rem;color:var(--yellow);">▲25</div>
+            <div style="position:absolute;left:38.7%;font-size:.65rem;color:var(--orange);">▲30</div>
+          </div>
+          <div class="dist-minmax"><span>13</span><span>median</span><span>58</span></div>
+          <div class="dist-stats" id="bmi-stats"></div>
+          <input type="range" class="bmi-r" id="bmi" min="13" max="58" step="0.5" value="28.0" oninput="update()">
+        </div>
+
+        <!-- SEX -->
+        <div style="margin-top:12px;">
+          <div class="dslider-header">
+            <span class="dslider-name">Sex</span>
+            <span class="dslider-val" id="sex-v">Male</span>
+          </div>
+          <input type="range" id="sex" min="1" max="2" step="1" value="1" oninput="update()">
+          <div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted);margin-top:3px;"><span>Male</span><span>Female</span></div>
+          <p style="font-size:.7rem;color:var(--muted);margin-top:6px;">Sex p=0.682 — not statistically significant in this model.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: OUTPUTS -->
+    <div class="col-right">
+
+      <!-- Hospitalization probability -->
+      <div class="card">
+        <div class="ct">Estimated Hospitalizations — Next 12 Months</div>
+        <div class="hosp-grid">
+          <div class="hosp-big">
+            <div class="num" id="hosp-expected" style="color:var(--blue)">—</div>
+            <div class="lbl">expected per year<br><span style="font-size:.7rem">(Poisson rate λ)</span></div>
+          </div>
+          <div class="hosp-big">
+            <div class="num" id="hosp-once" style="color:var(--yellow)">—</div>
+            <div class="lbl">chance of ≥1 visit<br><span style="font-size:.7rem">this year</span></div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:6px;font-size:.78rem;color:var(--muted);">Probability breakdown:</div>
+        <div class="prob-row">
+          <span class="prob-label">0 visits</span>
+          <div class="prob-track"><div class="prob-fill" id="p0" style="background:#3fb950"><span id="p0t"></span></div></div>
+          <span class="prob-pct" id="p0p" style="color:#3fb950"></span>
+        </div>
+        <div class="prob-row">
+          <span class="prob-label">1 visit</span>
+          <div class="prob-track"><div class="prob-fill" id="p1" style="background:#d29922"><span id="p1t"></span></div></div>
+          <span class="prob-pct" id="p1p" style="color:#d29922"></span>
+        </div>
+        <div class="prob-row">
+          <span class="prob-label">2 visits</span>
+          <div class="prob-track"><div class="prob-fill" id="p2" style="background:#db6d28"><span id="p2t"></span></div></div>
+          <span class="prob-pct" id="p2p" style="color:#db6d28"></span>
+        </div>
+        <div class="prob-row">
+          <span class="prob-label">3+ visits</span>
+          <div class="prob-track"><div class="prob-fill" id="p3" style="background:#f85149"><span id="p3t"></span></div></div>
+          <span class="prob-pct" id="p3p" style="color:#f85149"></span>
+        </div>
+
+        <p style="font-size:.72rem;color:var(--muted);margin-top:10px;line-height:1.5;">
+          Based on NHANES base rate (15.7%) × Cox hazard ratio, converted via Poisson approximation.
+          C-index = 0.639 (50% = coin flip, 65%+ = useful) — approximate only, not clinical.
+          Hospitalization data is retrospective (past year); reverse causality limits causal interpretation.
+        </p>
+      </div>
+
+      <!-- Feature summary row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+        <!-- Blood Pressure -->
+        <div class="card">
+          <div class="ct">Estimated Systolic Blood Pressure</div>
+          <div class="bp-display">
+            <span class="bp-num" id="bp-num">—</span>
+            <span class="bp-unit">mmHg</span>
+          </div>
+          <div class="bp-cat" id="bp-cat">—</div>
+          <div class="bp-bar" style="margin-top:10px;">
+            <div class="bp-needle" id="bp-needle"></div>
+          </div>
+          <div class="bp-labels"><span>100</span><span>120</span><span>130</span><span>140</span><span>160</span></div>
+          <p style="font-size:.7rem;color:var(--muted);margin-top:8px;line-height:1.5;">
+            Correlation estimate from NHANES data — not from Cox model. Association only, not causal.
+          </p>
+        </div>
+
+        <!-- Activity summary -->
+        <div class="card">
+          <div class="ct">Activity Summary</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <div style="font-size:.72rem;color:var(--muted)">Weekly Steps</div>
+              <div style="font-size:1.5rem;font-weight:700;" id="sum-steps">—</div>
+              <div style="font-size:.74rem;color:var(--muted)" id="sum-steps-sub"></div>
+            </div>
+            <div>
+              <div style="font-size:.72rem;color:var(--muted)">% Time Sedentary</div>
+              <div style="font-size:1.5rem;font-weight:700;" id="sum-zero">—</div>
+              <div style="font-size:.74rem;color:var(--muted)">pop. median ≈ 63% · HR +1.025 per 1% unit</div>
+            </div>
+            <div>
+              <div style="font-size:.72rem;color:var(--muted)">Sleep Proxy <span style="color:var(--red);font-size:.68rem;">★ biggest model weight</span></div>
+              <div style="font-size:1.5rem;font-weight:700;" id="sum-sleep">—</div>
+              <div style="font-size:.74rem;color:var(--muted)">pop. median 0.960 · HR 0.104 per unit (dominant)</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Alerts -->
+      <div class="card">
+        <div class="ct">Threshold Flags</div>
+        <div id="alerts"><p style="color:var(--muted);font-size:.82rem;">Move sliders to see threshold flags.</p></div>
+      </div>
+
+    </div><!-- /col-right -->
+  </div><!-- /grid -->
+</div>
+</div><!-- /page0 -->
+
+
+<!-- ==================== PAGE 2: EXPLAINER ==================== -->
+<div class="page" id="page1">
+<div class="explainer">
+
+  <h1>How This All Works — Plain English</h1>
+  <p class="intro">
+    This guide explains what we built, why we built it, and what's wrong with it.
+    No prerequisites needed — if you can understand a recipe, you can understand this.
+  </p>
+
+  <!-- SECTION 1 -->
+  <div class="section">
+    <h2>1. What Data Are We Using?</h2>
+    <p>
+      The data comes from <strong>NHANES</strong> — the National Health and Nutrition Examination Survey.
+      Every few years, the CDC recruits thousands of Americans and does a full health checkup:
+      blood tests, measurements, questionnaires. In 2005, they also handed out a device called an
+      <strong>accelerometer</strong>.
+    </p>
+    <h3>What is an accelerometer?</h3>
+    <p>
+      An accelerometer is a tiny sensor that detects movement. You've got one in your phone — it's how your
+      phone knows when you tilt it. The ones in this study were worn on the hip for 7 days straight,
+      recording how much you moved every single minute.
+    </p>
+    <p>
+      From that minute-by-minute motion data, we can calculate things like: How many steps did you take?
+      How long did you sit completely still? Did you sleep through the night?
+    </p>
+    <div class="callout">
+      <p><strong>The catch:</strong> This is only 7 days of data per person. A single week is not
+      representative of someone's activity over months or years. That's one of the big reasons this
+      model is limited.</p>
+    </div>
+
+    <h3>Who is in the dataset?</h3>
+    <p>
+      We used <strong>1,516 adults age 50–85</strong>. Of those, <strong>238 (15.7%)</strong>
+      reported being hospitalized in the past year. The accelerometry data was recorded at roughly the
+      same time as — or after — the hospitalization, which matters a lot (more on this later).
+    </p>
+  </div>
+
+  <!-- SECTION 2 -->
+  <div class="section">
+    <h2>2. What Features Did We Build?</h2>
+    <p>
+      The raw data is 15 million rows of minute-level motion readings. We can't feed that directly into
+      a model — we need to summarize it into a few meaningful numbers per person. These summaries are
+      called <strong>features</strong>.
+    </p>
+
+    <h3>Total Steps (weekly)</h3>
+    <p>
+      The total number of steps taken across all 7 wear days. Population median: about <strong>46,500 steps/week</strong>
+      (~6,600/day). Hospitalized patients in the data averaged 36,500/week vs. 51,800 for non-hospitalized —
+      a 15,000-step gap that is statistically significant (t-test p&lt;0.0001).
+    </p>
+
+    <h3>% Sedentary Time (pct_zero)</h3>
+    <p>
+      The fraction of all recorded minutes where the accelerometer detected zero movement,
+      expressed as a percentage. Someone who sits at a desk all day might be 75% sedentary.
+      The population median in NHANES adults 50+ is about <strong>63%</strong>.
+      Each 1% increase in sedentary time multiplies hospitalization hazard by 1.025 in the model.
+    </p>
+
+    <h3>Sleep Proxy ⭐ — the dominant predictor</h3>
+    <p>
+      The fraction of nighttime minutes (10pm–6am) where the device recorded zero movement.
+      A value close to 1.0 means you were essentially still all night — usually meaning you were asleep.
+      Population median is 0.960 — most people are nearly motionless at night.
+    </p>
+    <div class="callout red">
+      <p><strong>This turned out to be the biggest single factor in the model</strong> — by a wide margin.
+      The hazard ratio is 0.104, meaning a unit increase in sleep proxy drops hospitalization hazard to
+      about 10% of baseline. The coefficient (−2.265) is roughly 40× larger in magnitude than the BMI
+      coefficient. But it's tricky to interpret — a high sleep proxy could mean healthy deep sleep, OR
+      it could mean someone who is too ill to move at night. See Section 7 for the full discussion.</p>
+    </div>
+
+    <h3>BMI (Body Mass Index)</h3>
+    <p>
+      Your weight in kilograms divided by your height in meters squared. Categories:
+      Under 18.5 = underweight, 18.5–25 = healthy, 25–30 = overweight, 30+ = obese.
+      Population median: 28.05. BMI is the <em>most statistically reliable</em> predictor in our model
+      (p&lt;0.0001) — it shows up consistently regardless of what else is in the model.
+    </p>
+
+    <h3>Activity Slope</h3>
+    <p>
+      How your step count changed across the 7 days — were you more active on day 7 than day 1?
+      This was designed to be the "trajectory" feature — capturing physical decline.
+      <strong>It had no significant effect</strong> (p=0.504). With only 7 days, there's not
+      enough data to detect meaningful trends.
+    </p>
+  </div>
+
+  <!-- SECTION 3 -->
+  <div class="section">
+    <h2>3. What is a Cox Proportional Hazards Model?</h2>
+    <p>
+      A Cox model is a type of <strong>survival analysis</strong>. It was designed to answer questions like
+      "how long until a patient dies?" — but it works for any time-to-event question. We're using it for:
+      <em>at what age does a person get hospitalized?</em>
+    </p>
+
+    <h3>The basic idea</h3>
+    <p>
+      We treat each patient's age (minus 50) as the "time observed," and hospitalization as the event.
+      The model asks: how does each person's <strong>risk of being hospitalized right now</strong>
+      depend on their characteristics? That risk at any moment is called the <strong>hazard</strong>.
+    </p>
+
+    <div class="formula-box">
+Hazard(person) = Baseline Hazard × e^(β₁×Steps + β₂×SedentaryTime + β₃×SleepProxy + β₄×BMI + ...)
+
+Where:
+  β₁, β₂, β₃, β₄  =  weights learned from data (the coefficients)
+  e                =  Euler's number (~2.718)
+  Baseline Hazard  =  average risk in the population (cancels out in comparisons)
+    </div>
+
+    <h3>What is exp(coef), the hazard ratio?</h3>
+    <p>
+      Each coefficient β gets exponentiated to produce a <strong>hazard ratio (HR)</strong>:
+    </p>
+    <ul>
+      <li><strong>HR = 1.0</strong> → no effect on risk</li>
+      <li><strong>HR = 1.5</strong> → 50% higher risk per unit increase</li>
+      <li><strong>HR = 0.5</strong> → risk cut in half per unit increase</li>
+    </ul>
+
+    <table class="coef-table">
+      <thead><tr><th>Feature</th><th>Exact Coefficient β</th><th>Hazard Ratio (HR)</th><th>p-value</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Sleep proxy</td>
+          <td>−2.2654</td>
+          <td>0.104 (protective)</td>
+          <td>0.003</td>
+          <td><span class="badge dominant">Dominant effect</span></td>
+        </tr>
+        <tr>
+          <td>BMI</td>
+          <td>+0.05760</td>
+          <td>1.059 per unit</td>
+          <td>&lt;0.0001</td>
+          <td><span class="badge strong">Most statistically solid</span></td>
+        </tr>
+        <tr>
+          <td>% Sedentary time</td>
+          <td>+0.02513</td>
+          <td>1.025 per 1% unit</td>
+          <td>0.003</td>
+          <td><span class="badge sig">Significant</span></td>
+        </tr>
+        <tr>
+          <td>Total steps</td>
+          <td>+8.31 × 10⁻⁶</td>
+          <td>≈ 1.000 per step</td>
+          <td>0.035</td>
+          <td><span class="badge sig">Significant but ⚠ counterintuitive</span></td>
+        </tr>
+        <tr>
+          <td>Activity slope</td>
+          <td>−8.75 × 10⁻⁵</td>
+          <td>≈ 1.000</td>
+          <td>0.504</td>
+          <td><span class="badge ns">Not significant — zero effect</span></td>
+        </tr>
+        <tr>
+          <td>Sex (1=M, 2=F)</td>
+          <td>−0.05607</td>
+          <td>0.945</td>
+          <td>0.682</td>
+          <td><span class="badge ns">Not significant</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout warn">
+      <p><strong>Why does total_steps have a positive coefficient?</strong> More steps should mean lower risk —
+      but the coefficient is slightly positive. This is most likely due to <em>multicollinearity</em>: steps and
+      sedentary time (pct_zero) are highly correlated. When the model already has pct_zero controlling for
+      sedentary behavior, total_steps doesn't add much unique information and its coefficient becomes unreliable
+      in direction. The step count threshold (35,000/week) from Part 5 of the notebook is still valid — it comes
+      from using steps alone as a predictor, not from the full Cox model.</p>
+    </div>
+
+    <h3>Reading the BMI row as an example</h3>
+    <p>
+      BMI coefficient = +0.05760. Hazard ratio = e^0.05760 = 1.059. That means for every 1 unit increase in BMI,
+      your hospitalization hazard goes up by 5.9%. Going from BMI 25 to BMI 35 (10 units):
+      1.059^10 = <strong>1.78× the hazard</strong> — nearly double the risk.
+      And that's just from BMI alone, holding everything else constant.
+    </p>
+
+    <h3>What is the C-index?</h3>
+    <p>
+      The C-index measures how well the model ranks people by risk. Take any two people —
+      one who got hospitalized, one who didn't. What fraction of the time did the model assign higher risk
+      to the hospitalized person?
+    </p>
+    <ul>
+      <li>0.50 = random guessing (coin flip)</li>
+      <li>0.65+ = clinically useful</li>
+      <li>1.00 = perfect</li>
+    </ul>
+    <p>Our model got <strong>0.639</strong> — better than chance, but not reliable enough to act on clinically.</p>
+  </div>
+
+  <!-- SECTION 4 -->
+  <div class="section">
+    <h2>4. What Did the Cluster Analysis Tell Us?</h2>
+    <p>
+      We ran K-means clustering on patients' cardiovascular health markers (BP, BMI, diastolic BP, waist).
+      We also clustered on activity patterns (peak hour, morning fraction, daily consistency).
+      Both analyses pointed to the same conclusion.
+    </p>
+
+    <h3>There are two worlds, not a spectrum</h3>
+    <p>
+      The high-activity clusters (averaging 69,000–80,000 steps/week) had hospitalization rates of 8–8.5%.
+      The low-activity clusters (30,000–38,000 steps/week) had rates of 19–22%.
+      But here's what matters: the high-activity patients also had lower BMI, lower blood pressure,
+      and smaller waist circumference. It wasn't just that they walked more.
+    </p>
+    <div class="callout warn">
+      <p><strong>The implication:</strong> You can't move someone from cluster 3 to cluster 2 just by
+      telling them to take more steps. The healthiest patients aren't "people who walk more" —
+      they're a fundamentally different metabolic profile. This raises the question of whether
+      activity causes health, or whether health enables activity (see Section 7).</p>
+    </div>
+
+    <h3>Does time of day matter?</h3>
+    <p>
+      We tested whether morning-dominant movers had better outcomes than night-dominant movers
+      with the same total activity. Among patients within one standard deviation of average step count:
+      night-active patients had 15.1% hospitalization rate, morning-active had 14.9%.
+      <strong>The difference is essentially noise.</strong>
+    </p>
+    <p>
+      We also built an AR(1) model predicting tomorrow's steps by time block.
+      Morning was the most predictable (R²=0.342), night the least (R²=0.292) —
+      but all three blocks had similar predictability. Morning routines are habitual, night activity is noisy.
+      Neither finding changes the health picture: <em>volume matters, timing doesn't.</em>
+    </p>
+  </div>
+
+  <!-- SECTION 5 -->
+  <div class="section">
+    <h2>5. The Step Count Threshold — What is "Youden-Optimal"?</h2>
+    <p>
+      From Part 5 of the notebook: <em>What weekly step count best separates people who were
+      hospitalized from people who weren't?</em>
+    </p>
+
+    <h3>ROC Curve — finding the best cutoff</h3>
+    <p>
+      If you draw a line and say "everyone below this step count is high risk," there's a tradeoff:
+      set it too low and you miss real cases; set it too high and you flag everyone.
+      The <strong>ROC curve</strong> plots every possible threshold, showing:
+    </p>
+    <ul>
+      <li><strong>Sensitivity</strong> — of all hospitalized patients, what fraction did you correctly flag?</li>
+      <li><strong>Specificity</strong> — of all non-hospitalized patients, what fraction did you leave alone?</li>
+    </ul>
+
+    <h3>Youden's J — picking the best point</h3>
+    <div class="formula-box">J = Sensitivity + Specificity − 1
+
+The threshold where J is highest balances catching real cases
+vs. avoiding false alarms as well as possible.</div>
+    <p>
+      In our notebook, the Youden-optimal threshold came out to approximately <strong>35,000 steps/week</strong>.
+      Below that, hospitalization rates were noticeably higher. Above it, lower.
+      The ROC AUC for steps alone was about 0.57 — barely better than random (0.50).
+      The full Cox model reaches C-index 0.639 by combining all features.
+    </p>
+  </div>
+
+  <!-- SECTION 6 -->
+  <div class="section">
+    <h2>6. How Does the Simulator Estimate Hospitalizations Per Year?</h2>
+    <div class="callout warn">
+      <p><strong>Honest disclaimer:</strong> The Cox model outputs a hazard ratio — a relative comparison.
+      To get "number of hospitalizations per year," we apply a Poisson approximation. It's not in the notebook,
+      but it's standard math for rare event counts.</p>
+    </div>
+
+    <h3>Step 1: Base rate</h3>
+    <p>
+      15.7% of adults 50+ in the NHANES sample were hospitalized in the past year (238/1,516).
+      This is our baseline annual rate for an average person.
+    </p>
+
+    <h3>Step 2: Adjust via Cox relative risk</h3>
+    <p>
+      The Cox model compares your activity profile to the <em>median patient</em> (median steps=46,455,
+      median BMI=28.05, median pct_zero=62.9%, median sleep_proxy=0.960). Your relative risk scales the base rate up or down.
+    </p>
+    <div class="formula-box">Your estimated rate λ = 0.157 × relative_risk
+
+Example: relative_risk = 1.5  →  λ = 0.157 × 1.5 = 0.236 hospitalizations/year</div>
+
+    <h3>Step 3: Poisson probabilities</h3>
+    <div class="formula-box">P(0 visits this year)  =  e^(−λ)
+P(exactly 1 visit)    =  λ × e^(−λ)
+P(exactly 2 visits)   =  (λ²÷2) × e^(−λ)
+P(3 or more)          =  1 − all of the above</div>
+    <p>
+      The Poisson formula is the standard math for "how many times does a rare event happen per unit time?"
+      Same math as: how many calls per hour to a call center, how many cars per minute at a stoplight.
+    </p>
+    <div class="callout warn">
+      <p><strong>Why this is approximate:</strong> Hospitalization data is retrospective — it asks
+      "were you hospitalized last year?" The Poisson formula assumes events are independent and random,
+      which hospitalizations are not. Treat these numbers as a rough scale for comparing profiles,
+      not as actual medical predictions.</p>
+    </div>
+  </div>
+
+  <!-- SECTION 7 -->
+  <div class="section">
+    <h2>7. How Is Blood Pressure Estimated? (And What is mmHg?)</h2>
+    <div class="callout warn">
+      <p><strong>The Cox model does not predict blood pressure.</strong> The BP number is a separate
+      rough estimate based on observed correlations in the NHANES data.</p>
+    </div>
+
+    <h3>What is mmHg?</h3>
+    <p>
+      <strong>mmHg</strong> stands for "millimeters of mercury." Left over from when doctors used actual
+      mercury in glass tubes. When your BP is "130 over 80," the 130 is your systolic pressure in mmHg —
+      the force of blood against artery walls when your heart beats. Higher = heart working harder.
+    </p>
+    <ul>
+      <li><strong>Under 120 mmHg</strong> — Normal</li>
+      <li><strong>120–129</strong> — Elevated</li>
+      <li><strong>130–139</strong> — Stage 1 Hypertension</li>
+      <li><strong>140+</strong> — Stage 2 (where doctors typically prescribe medication)</li>
+    </ul>
+
+    <h3>Where does the estimate come from?</h3>
+    <p>
+      The scatter plots in Part 1 of the notebook show that people with more weekly steps tend to have
+      lower systolic BP, and people with higher BMI tend to have higher BP — real correlations in the data.
+      Average systolic BP in the dataset is 134.2 mmHg at median BMI (28.05) and median steps (46,455).
+    </p>
+    <div class="formula-box">Estimated Systolic BP ≈ 134 + (BMI − 28.05) × 1.2 − (weekly steps − 46,455) × 0.00012
+
+Where:
+  134     = observed mean BP in NHANES 50+ sample (from dataset)
+  28.05   = median BMI in dataset (from SIM PREP cell)
+  46,455  = median weekly steps in dataset (from SIM PREP cell)
+  1.2     = rough mmHg increase per BMI unit (published literature)
+  0.00012 = rough mmHg decrease per additional step/week</div>
+    <p>
+      This is <strong>not a medical formula</strong> — it's a simplified approximation. The real
+      relationship is nonlinear and confounded by many things not in this model.
+    </p>
+  </div>
+
+  <!-- SECTION 8 -->
+  <div class="section">
+    <h2>8. Why Is the Model Inaccurate? (The Honest Version)</h2>
+
+    <h3>Problem 1: Reverse causality — the big one</h3>
+    <p>
+      The hospitalization data asks "were you hospitalized last year?" But the accelerometry was measured
+      at roughly the same time. So a person hospitalized for a chronic illness might walk less <em>because
+      they're sick</em> — not the other way around. Low activity could be a <em>consequence</em> of illness,
+      not a predictor of it. The 15,000 step gap between groups is real, but we can't say which caused which.
+    </p>
+
+    <h3>Problem 2: Weak prediction overall</h3>
+    <p>
+      C-index = 0.639. The model correctly ranks a random hospitalized patient above a random non-hospitalized
+      one only 63.9% of the time. For reference, a good clinical risk model is above 0.70.
+    </p>
+
+    <h3>Problem 3: Sleep proxy is confounded</h3>
+    <p>
+      Sleep proxy has by far the largest coefficient, but it's almost certainly confounded.
+      Sick people sleep poorly and move around at night; they'd have a low sleep proxy because of their
+      illness — not because poor sleep caused their hospitalization. We can't separate these effects.
+    </p>
+
+    <h3>Problem 4: 7 days ≠ a lifetime of behavior</h3>
+    <p>
+      One week of accelerometry doesn't capture long-term activity trends. Illness, travel, or bad weather
+      during that specific week would distort the picture completely.
+    </p>
+
+    <h3>Problem 5: 50+ only</h3>
+    <p>Ages 50–85 only. Cannot generalize to younger populations.</p>
+
+    <h3>Problem 6: Activity slope is useless</h3>
+    <p>
+      The feature we designed to capture "is this person's activity declining?" — activity_slope —
+      had essentially zero effect (coef = −8.75×10⁻⁵, p=0.504). Seven days is not enough data to
+      detect a meaningful trend.
+    </p>
+  </div>
+
+  <!-- SECTION 9 -->
+  <div class="section">
+    <h2>9. What Would Make It Better?</h2>
+
+    <div class="callout good">
+      <p><strong>The right data:</strong> Multiple accelerometry waves, 2–5 years apart, with actual
+      hospitalization dates recorded prospectively. That would give real trajectories and real forward-looking predictions.</p>
+    </div>
+
+    <ul>
+      <li><strong>Longitudinal design:</strong> Measure the same people at age 55, 60, 65. Track whether
+      activity declines before hospitalization, not at the same time.</li>
+      <li><strong>Prospective outcome:</strong> Measure activity first, then wait a year and record
+      hospitalizations. Eliminates reverse causality.</li>
+      <li><strong>Resting heart rate:</strong> NHANES 2005 doesn't include it. Heart rate would
+      probably be the strongest predictor and is easy to measure with modern wearables.</li>
+      <li><strong>Clinical confounders:</strong> Disease diagnoses, medications, smoking history —
+      all predict hospitalization and all correlate with activity.</li>
+      <li><strong>Personal baseline:</strong> Instead of comparing to the population median, compare
+      each person to their own historical average. A 20% drop from your baseline is more informative
+      than your absolute step count.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>10. Glossary</h2>
+    <ul>
+      <li><strong>Accelerometer</strong> — A sensor that measures movement. Used to estimate steps, sedentary time, and sleep.</li>
+      <li><strong>Cox regression</strong> — A statistical model for time-to-event data. Predicts hazard as a function of covariates.</li>
+      <li><strong>Hazard ratio (HR)</strong> — How much one group's risk differs from another's. HR = 2.0 means twice the risk.</li>
+      <li><strong>C-index</strong> — How often the model ranks a higher-risk person above a lower-risk one. 0.5 = random, 1.0 = perfect.</li>
+      <li><strong>Coefficient (β)</strong> — The weight the model assigns to each feature. Exponentiated to get the hazard ratio.</li>
+      <li><strong>p-value</strong> — Probability you'd see this result by chance if there were no real effect. Below 0.05 = statistically significant.</li>
+      <li><strong>Multicollinearity</strong> — When two predictors are highly correlated, making their individual coefficients unreliable. Steps and sedentary time are an example.</li>
+      <li><strong>Cross-sectional</strong> — Data collected at a single point in time. The opposite of longitudinal.</li>
+      <li><strong>Reverse causality</strong> — When the outcome actually causes the predictor. Low activity after hospitalization looks like a risk factor but may be a consequence.</li>
+      <li><strong>mmHg</strong> — Millimeters of mercury. The unit for blood pressure. 130 mmHg = pressure strong enough to push a mercury column 130mm high.</li>
+      <li><strong>ROC curve</strong> — A graph showing every possible decision threshold and the tradeoff between catching real cases (sensitivity) vs. avoiding false alarms (specificity).</li>
+      <li><strong>Youden's J</strong> — J = sensitivity + specificity − 1. Used to find the single best threshold on a ROC curve. Used in Part 5 to find the optimal step cutoff (~35,000/week).</li>
+      <li><strong>Poisson distribution</strong> — A model for "how many times does a rare event happen per unit time?" Used in the simulator to convert the Cox hazard rate into 0/1/2/3+ probabilities.</li>
+      <li><strong>AR(1) model</strong> — Autoregressive model of order 1. Predicts today's value from yesterday's. Used to forecast next-day step counts by time block.</li>
+      <li><strong>Sleep proxy</strong> — Fraction of nighttime minutes (10pm–6am) with zero accelerometer movement. High = still all night. The dominant predictor in our model, but confounded by illness.</li>
+      <li><strong>K-means clustering</strong> — An algorithm that groups data points into K clusters by minimizing within-cluster distance. Used to find natural health archetypes in the patient data.</li>
+    </ul>
+  </div>
+
+</div>
+</div><!-- /page1 -->
+
+
+<script>
+// ============================================================
+// MODEL — exact coefficients and medians from SIM PREP cell
+// ============================================================
+const MODEL = {
+  coefs: {
+    total_steps:     8.3060637e-6,
+    pct_zero:        0.025130381,
+    sleep_proxy:    -2.265366226,
+    activity_slope: -8.7477631e-5,
+    bmi:             0.057600324,
+    sex:            -0.056074242
+  },
+  refs: {
+    total_steps:     46455.5,
+    pct_zero:        62.872,
+    sleep_proxy:     0.9601,
+    activity_slope:  68.643,
+    bmi:             28.05,
+    sex:             1.0
+  },
+  base_rate:       0.157,
+  step_threshold:  35000
+};
+
+const REF_LH = Object.keys(MODEL.coefs).reduce((s,k) => s + MODEL.coefs[k]*MODEL.refs[k], 0);
+
+// Population stats for distribution bars
+// BMI from SIM PREP exact; time blocks estimated from NHANES weekly distribution
+const POP = {
+  morning: { min:0, mean:400, std:240, median:385, p5:0,    p95:830, max:900 },
+  midday:  { min:0, mean:430, std:260, median:415, p5:0,    p95:870, max:900 },
+  night:   { min:0, mean:265, std:165, median:255, p5:0,    p95:570, max:900 },
+  bmi:     { min:13.4, mean:28.92, std:6.26, median:28.05, p5:20.69, p95:40.52, max:57.4 }
+};
+
+// ============================================================
+// Tab switching
+// ============================================================
+function switchTab(n) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===n));
+  document.querySelectorAll('.page').forEach((p,i) => p.classList.toggle('active', i===n));
+}
+
+// ============================================================
+// Draw distribution bar for a slider
+// ============================================================
+function pctOnBar(val, popKey) {
+  const p = POP[popKey];
+  return Math.max(0, Math.min(100, (val - p.min) / (p.max - p.min) * 100));
+}
+
+function updateDistBar(key, val) {
+  const p   = POP[key];
+  const dot = document.getElementById(`${key}-dot`);
+  const sd  = document.getElementById(`${key}-sd`);
+  const med = document.getElementById(`${key}-med`);
+  const sts = document.getElementById(`${key}-stats`);
+  if (!dot) return;
+
+  const range   = p.max - p.min;
+  const dotPct  = pctOnBar(val, key);
+  const sdLo    = Math.max(0, (p.mean - p.std - p.min) / range * 100);
+  const sdHi    = Math.min(100, (p.mean + p.std - p.min) / range * 100);
+  const medPct  = (p.median - p.min) / range * 100;
+
+  dot.style.left = dotPct + '%';
+  sd.style.left  = sdLo + '%';
+  sd.style.width = (sdHi - sdLo) + '%';
+  med.style.left = medPct + '%';
+
+  const diff    = val - p.median;
+  const diffSDs = (diff / p.std).toFixed(1);
+  const diffStr = diff >= 0 ? `+${diff.toFixed(0)}` : diff.toFixed(0);
+  const sdStr   = parseFloat(diffSDs) >= 0 ? `+${diffSDs} SD` : `${diffSDs} SD`;
+  sts.innerHTML = `You: <b>${val}</b> &nbsp;·&nbsp; Median: <b>${p.median}</b> &nbsp;·&nbsp; SD: ±<b>${p.std}</b> &nbsp;·&nbsp; ${diffStr} from median (${sdStr})`;
+}
+
+// ============================================================
+// Derive model features from slider values
+// ============================================================
+function derive(morning, midday, night, bmi, sex) {
+  const hourly = Array(24).fill(0);
+  for (let h = 6;  h <= 11; h++) hourly[h] = morning;
+  for (let h = 12; h <= 17; h++) hourly[h] = midday;
+  for (let h = 18; h <= 23; h++) hourly[h] = night;
+  // hours 0–5 = sleep, always 0
+
+  const total_steps = hourly.reduce((a,b) => a+b, 0) * 7;
+
+  // pct_zero: % of weekly minutes at zero intensity
+  let zeroMin = 0;
+  hourly.forEach(s => {
+    zeroMin += s === 0 ? 60 : Math.max(4, 60 - s * 0.065);
+  });
+  const pct_zero = zeroMin / (24 * 60) * 100;
+
+  // sleep_proxy: fraction of 10pm–6am (8 hours) at zero
+  // Hours 22–23 overlap with night slider; hours 0–5 are always 0
+  // Use a smooth probability so the value doesn't cliff at night > 0
+  const nightZeroProb = s => s === 0 ? 0.97 : Math.max(0, 1 - s / 600);
+  const nightZeroSum  = nightZeroProb(hourly[22]) + nightZeroProb(hourly[23]) + 6; // 6 = always-zero hrs 0–5
+  const sleep_proxy   = Math.min(1.0, nightZeroSum / 8);
+
+  return { total_steps, pct_zero, sleep_proxy, activity_slope: MODEL.refs.activity_slope, bmi, sex };
+}
+
+function logHazard(f) {
+  return Object.keys(MODEL.coefs).reduce((s,k) => s + MODEL.coefs[k] * (f[k] ?? 0), 0);
+}
+
+// ============================================================
+// Main update
+// ============================================================
+function update() {
+  const morning = +document.getElementById('morning').value;
+  const midday  = +document.getElementById('midday').value;
+  const night   = +document.getElementById('night').value;
+  const bmi     = +document.getElementById('bmi').value;
+  const sex     = +document.getElementById('sex').value;
+
+  document.getElementById('morning-v').textContent = morning === 0 ? '0 – resting' : `${morning} steps/hr`;
+  document.getElementById('midday-v').textContent  = midday  === 0 ? '0 – resting' : `${midday} steps/hr`;
+  document.getElementById('night-v').textContent   = night   === 0 ? '0 – resting' : `${night} steps/hr`;
+  document.getElementById('bmi-v').textContent     = `BMI ${bmi.toFixed(1)} — ${bmi<18.5?'Underweight':bmi<25?'Healthy':bmi<30?'Overweight':'Obese'}`;
+  document.getElementById('sex-v').textContent     = sex === 1 ? 'Male' : 'Female';
+
+  updateDistBar('morning', morning);
+  updateDistBar('midday',  midday);
+  updateDistBar('night',   night);
+  updateDistBar('bmi',     bmi);
+
+  const f   = derive(morning, midday, night, bmi, sex);
+  const lh  = logHazard(f);
+  const rr  = Math.exp(lh - REF_LH);
+
+  // Poisson probabilities (cap λ at 2.5 to avoid runaway values)
+  const lambda = Math.min(MODEL.base_rate * rr, 2.5);
+  const p0 = Math.exp(-lambda);
+  const p1 = lambda * Math.exp(-lambda);
+  const p2 = (lambda * lambda / 2) * Math.exp(-lambda);
+  const p3 = Math.max(0, 1 - p0 - p1 - p2);
+
+  const hospEl = document.getElementById('hosp-expected');
+  hospEl.textContent = lambda.toFixed(2);
+  hospEl.style.color = lambda < 0.12 ? '#3fb950' : lambda < 0.22 ? '#d29922' : lambda < 0.40 ? '#db6d28' : '#f85149';
+
+  const oncePct = (1 - p0) * 100;
+  const onceEl  = document.getElementById('hosp-once');
+  onceEl.textContent = oncePct.toFixed(1) + '%';
+  onceEl.style.color = oncePct < 12 ? '#3fb950' : oncePct < 18 ? '#d29922' : oncePct < 28 ? '#db6d28' : '#f85149';
+
+  const maxP = Math.max(p0, p1, p2, p3, 0.01);
+  function setPbar(id, prob) {
+    const pct = (prob / maxP * 100).toFixed(1);
+    const txt = (prob * 100).toFixed(1) + '%';
+    document.getElementById(id).style.width    = pct + '%';
+    document.getElementById(id+'t').textContent = prob > 0.05 ? txt : '';
+    document.getElementById(id+'p').textContent = txt;
+  }
+  setPbar('p0', p0); setPbar('p1', p1); setPbar('p2', p2); setPbar('p3', p3);
+
+  // BP estimate — anchored to actual NHANES means (134.2 mmHg at median BMI/steps)
+  const bp      = Math.round(134 + (bmi - 28.05) * 1.2 - (f.total_steps - 46455) * 0.00012);
+  const bpEl    = document.getElementById('bp-num');
+  const bpCat   = document.getElementById('bp-cat');
+  bpEl.textContent = bp;
+  let bpColor, bpLabel;
+  if      (bp < 120) { bpColor='#3fb950'; bpLabel='Normal (<120 mmHg)'; }
+  else if (bp < 130) { bpColor='#7ee787'; bpLabel='Elevated (120–129)'; }
+  else if (bp < 140) { bpColor='#d29922'; bpLabel='Stage 1 Hypertension (130–139)'; }
+  else if (bp < 160) { bpColor='#db6d28'; bpLabel='Stage 2 Hypertension (140–159)'; }
+  else               { bpColor='#f85149'; bpLabel='Hypertensive Crisis (≥160)'; }
+  bpEl.style.color   = bpColor;
+  bpCat.textContent  = bpLabel;
+  bpCat.style.color  = bpColor;
+  const bpNeedle = Math.max(0, Math.min(100, (bp - 100) / 60 * 100));
+  document.getElementById('bp-needle').style.left = bpNeedle + '%';
+
+  // Activity summary
+  const wkSteps = Math.round(f.total_steps);
+  const stepsEl = document.getElementById('sum-steps');
+  stepsEl.textContent  = wkSteps.toLocaleString();
+  stepsEl.style.color  = wkSteps < MODEL.step_threshold ? '#f85149' : wkSteps > 60000 ? '#3fb950' : '#e6edf3';
+  document.getElementById('sum-steps-sub').textContent =
+    `${Math.round(wkSteps/7).toLocaleString()} steps/day · pop median 46,500/wk · threshold ~${MODEL.step_threshold.toLocaleString()}`;
+
+  const zeroEl = document.getElementById('sum-zero');
+  const pZ     = f.pct_zero.toFixed(1);
+  zeroEl.textContent = pZ + '%';
+  zeroEl.style.color = f.pct_zero > 80 ? '#f85149' : f.pct_zero < 55 ? '#3fb950' : '#e6edf3';
+
+  const sleepEl = document.getElementById('sum-sleep');
+  const sp      = f.sleep_proxy.toFixed(3);
+  sleepEl.textContent = sp;
+  sleepEl.style.color = f.sleep_proxy < 0.85 ? '#f85149' : f.sleep_proxy > 0.95 ? '#3fb950' : '#d29922';
+
+  // Threshold alerts
+  const alerts = [];
+
+  if (wkSteps < MODEL.step_threshold)
+    alerts.push({c:'danger', m:`⚠ ${wkSteps.toLocaleString()} steps/week is below the Youden-optimal threshold (~${MODEL.step_threshold.toLocaleString()}/wk). Hospitalization rate jumps noticeably below this cutoff.`});
+  else if (wkSteps < 50000)
+    alerts.push({c:'warn', m:`Steps near the threshold. Population median is 46,500/wk. Hospitalized patients averaged 36,500/wk.`});
+
+  if (bmi >= 30)
+    alerts.push({c:'danger', m:`⚠ BMI ≥ 30 (obese). Most statistically robust predictor in the model (p<0.0001). Every BMI unit above 28 adds ~5.9% to hazard. BMI 38 vs 28 = 1.75× the risk.`});
+  else if (bmi >= 25)
+    alerts.push({c:'warn', m:`BMI ${bmi.toFixed(1)} (overweight). ${(30-bmi).toFixed(1)} units from the obese threshold where risk accelerates noticeably.`});
+  else if (bmi < 18.5)
+    alerts.push({c:'warn', m:`BMI ${bmi.toFixed(1)} — underweight. In adults 50+, low BMI can indicate muscle loss or underlying illness.`});
+
+  if (f.sleep_proxy < 0.85)
+    alerts.push({c:'danger', m:`⚠ Sleep proxy ${sp} — far below median (0.960). This is the largest coefficient in the model (HR 0.104). Could indicate nighttime restlessness, poor sleep quality, or evening activity. See "How It Works" for the confounding caveat.`});
+  else if (f.sleep_proxy < 0.93)
+    alerts.push({c:'warn', m:`Sleep proxy ${sp} is below median (0.960). Night activity (6pm–12am slider) affects this — setting night lower will increase sleep proxy.`});
+
+  if (f.pct_zero > 78)
+    alerts.push({c:'danger', m:`⚠ ${pZ}% sedentary — significantly above median (63%). Model HR: +1.025 per 1% unit. Going from 63% to 80% sedentary multiplies hazard by e^(0.025×17) ≈ 1.53×.`});
+  else if (f.pct_zero > 70)
+    alerts.push({c:'warn', m:`${pZ}% sedentary — above median (63%). Each additional % sedentary adds 2.5% to hospitalization hazard.`});
+
+  if (bp >= 140)
+    alerts.push({c:'danger', m:`⚠ Estimated BP ${bp} mmHg — Stage 2 hypertension range. Rough correlation estimate only, not a medical reading.`});
+
+  if (wkSteps > 55000 && bmi < 26 && f.sleep_proxy > 0.94 && f.pct_zero < 62)
+    alerts.push({c:'good', m:`✓ High activity + healthy BMI + strong sleep proxy + low sedentary time → all factors favoring lower hospitalization hazard relative to median.`});
+
+  document.getElementById('alerts').innerHTML = alerts.length
+    ? alerts.map(a => `<div class="alert ${a.c}">${a.m}</div>`).join('')
+    : '<p style="color:var(--muted);font-size:.82rem;">No threshold flags — settings look reasonable.</p>';
+}
+
+update();
+</script>
+</body>
+</html>
